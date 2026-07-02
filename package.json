@@ -10,7 +10,7 @@
   "author": "Luis Montes",
   "license": "MIT",
   "dependencies": {
-    "box3d-wasm": "file:../box3d-wasm",
+    "box3d-wasm": "^0.1.0",
     "three": "^0.178.0"
   }
 }
