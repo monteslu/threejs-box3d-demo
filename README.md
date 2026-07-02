@@ -39,4 +39,5 @@ Point Netlify at the repo and it picks everything up from `netlify.toml`. To tes
 ## Credits
 
 - Physics: Box3D by Erin Catto, MIT licensed, https://github.com/erincatto/box3d
+- Wasm build and bindings: [box3d-wasm](https://github.com/monteslu/box3d-wasm), on npm as `box3d-wasm`
 - Rendering: three.js, MIT licensed, https://threejs.org
