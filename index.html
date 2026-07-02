@@ -25,6 +25,13 @@
     }
     #menu button:hover { border-color: #89b4fa; }
     #menu button.active { background: #89b4fa; color: #0b0e14; border-color: #89b4fa; }
+    #ghlink {
+      position: fixed; bottom: 10px; right: 10px; z-index: 10;
+      color: #cdd6f4; font: 13px monospace; text-decoration: none;
+      background: rgba(11, 14, 20, 0.7); border: 1px solid #2a2f3a;
+      border-radius: 6px; padding: 6px 12px;
+    }
+    #ghlink:hover { border-color: #89b4fa; color: #89b4fa; }
   </style>
   <script type="importmap">
     {
@@ -41,6 +48,7 @@
 <body>
   <div id="hud">loading...</div>
   <div id="menu"></div>
+  <a id="ghlink" href="https://github.com/monteslu/box3d-wasm" target="_blank" rel="noopener">box3d-wasm on GitHub</a>
   <script type="module" src="/main.js"></script>
 </body>
 </html>
