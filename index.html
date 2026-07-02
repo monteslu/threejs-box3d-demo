@@ -14,13 +14,25 @@
       border-radius: 6px; padding: 8px 12px; pointer-events: none;
       white-space: pre;
     }
+    #menu {
+      position: fixed; top: 10px; right: 10px; z-index: 10;
+      display: flex; gap: 6px;
+    }
+    #menu button {
+      color: #cdd6f4; font: 13px monospace; cursor: pointer;
+      background: rgba(11, 14, 20, 0.7); border: 1px solid #2a2f3a;
+      border-radius: 6px; padding: 6px 12px;
+    }
+    #menu button:hover { border-color: #89b4fa; }
+    #menu button.active { background: #89b4fa; color: #0b0e14; border-color: #89b4fa; }
   </style>
   <script type="importmap">
     {
       "imports": {
         "three": "/node_modules/three/build/three.module.js",
         "three/addons/": "/node_modules/three/examples/jsm/",
-        "box3d-wasm": "/node_modules/box3d-wasm/dist/box3d.mjs",
+        "box3d-wasm": "/node_modules/box3d-wasm/dist/entry.mjs",
+        "box3d-wasm/standard": "/node_modules/box3d-wasm/dist/box3d.mjs",
         "box3d-wasm/deluxe": "/node_modules/box3d-wasm/dist/box3d.deluxe.mjs"
       }
     }
@@ -28,6 +40,7 @@
 </head>
 <body>
   <div id="hud">loading...</div>
+  <div id="menu"></div>
   <script type="module" src="/main.js"></script>
 </body>
 </html>

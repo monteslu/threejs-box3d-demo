@@ -1,0 +1,14 @@
+# Netlify deployment. The headers below make the site cross-origin isolated,
+# which is what lets the threaded box3d-wasm build use SharedArrayBuffer.
+[build]
+  command = "npm ci && node scripts/build-site.mjs"
+  publish = "site"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Embedder-Policy = "require-corp"

@@ -5,7 +5,9 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.dirname(fileURLToPath(import.meta.url));
+// ROOT=site node server.js serves the assembled deploy directory instead
+const base = path.dirname(fileURLToPath(import.meta.url));
+const root = process.env.ROOT ? path.resolve(base, process.env.ROOT) : base;
 const port = Number(process.env.PORT || 8973);
 
 const mime = {
