@@ -53,6 +53,13 @@ controls.target.set(0, 3, 0);
 controls.enableDamping = true;
 controls.maxPolarAngle = Math.PI * 0.49;
 
+// leave right-click alone: OrbitControls suppresses the context menu for
+// right-drag panning, but people should be able to open devtools. The
+// window-level capture listener runs before the canvas handler and stops
+// the suppression; panning stays available on middle-drag and touch.
+controls.mouseButtons.RIGHT = null;
+addEventListener('contextmenu', (e) => e.stopPropagation(), true);
+
 scene.add(new THREE.HemisphereLight(0x8899cc, 0x223311, 0.9));
 const sun = new THREE.DirectionalLight(0xfff2d8, 2.2);
 sun.position.set(25, 40, 15);

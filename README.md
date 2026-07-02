@@ -1,5 +1,7 @@
 # threejs-box3d-demo
 
+**Live demo: https://box3d.netlify.app/**
+
 three.js demo scenes driven by [Box3D](https://github.com/erincatto/box3d), Erin Catto's 3D physics engine, running in the browser through the [box3d-wasm](https://github.com/monteslu/box3d-wasm) package.
 
 The default box3d-wasm import auto-detects thread support at runtime: on a cross-origin isolated page (or in Node.js) it loads the threaded build, otherwise it falls back to the single threaded build. The Vite dev server, preview server, and the Netlify config all send the isolation headers, so you get threads everywhere.
