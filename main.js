@@ -12,7 +12,7 @@ const params = new URLSearchParams(location.search);
 const workerCount = Math.max(0, parseInt(params.get('threads') || '0', 10));
 const initialBodies = Math.max(1, parseInt(params.get('bodies') || '400', 10));
 
-const { default: Box3D } = workerCount > 0 ? await import('box3d/deluxe') : await import('box3d');
+const { default: Box3D } = workerCount > 0 ? await import('box3d-wasm/deluxe') : await import('box3d-wasm');
 const b3 = await Box3D();
 
 const DT = 1 / 60;
