@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>three.js + Box3D</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0e14; }
+    canvas { display: block; }
+    #hud {
+      position: fixed; top: 10px; left: 10px; z-index: 10;
+      color: #cdd6f4; font: 13px/1.5 monospace;
+      background: rgba(11, 14, 20, 0.7); border: 1px solid #2a2f3a;
+      border-radius: 6px; padding: 8px 12px; pointer-events: none;
+      white-space: pre;
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/node_modules/three/build/three.module.js",
+        "three/addons/": "/node_modules/three/examples/jsm/",
+        "box3d": "/node_modules/box3d/dist/box3d.mjs",
+        "box3d/deluxe": "/node_modules/box3d/dist/box3d.deluxe.mjs"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="hud">loading...</div>
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
