@@ -159,9 +159,15 @@ function rainShapes(at, count) {
   }
 }
 
-function shootBall() {
+function shootBall(target) {
   const dir = new THREE.Vector3();
-  camera.getWorldDirection(dir);
+  if (target) {
+    // aim from the camera at the clicked point (slightly above the ground
+    // so the ball arcs into the target instead of skimming)
+    dir.set(target.x, (target.y || 0) + 0.75, target.z).sub(camera.position).normalize();
+  } else {
+    camera.getWorldDirection(dir);
+  }
   const from = camera.position.clone().addScaledVector(dir, 2);
   const body = world.createBody({
     type: 'dynamic',
@@ -403,8 +409,8 @@ const SCENES = {
         }
       }
     },
-    onClick() {
-      shootBall();
+    onClick(at) {
+      shootBall(at);
     },
     onWave() {
       rainShapes({ x: 0, z: 0 }, 25);
@@ -430,10 +436,211 @@ const SCENES = {
   },
 };
 
+// drivable buggy state (Driving scene)
+const drive = { active: false, wheels: [], steer: [] };
+const pressed = new Set();
+
+function buildBuggy(x, y, z) {
+  // chassis faces +x; wheel joints: suspension along frame A x (mapped to
+  // world y), spin about frame B z (the axle, world z)
+  const qXtoY = { x: 0, y: 0, z: Math.SQRT1_2, w: Math.SQRT1_2 };
+
+  // sleep stays off so motor changes always take effect immediately
+  const chassis = world.createBody({ type: 'dynamic', position: { x, y, z }, enableSleep: false });
+  chassis.createBox({ halfExtents: { x: 0.9, y: 0.2, z: 0.5 }, density: 4, friction: 0.3 });
+  const chassisMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(1.8, 0.4, 1.0),
+    new THREE.MeshStandardMaterial({ color: 0xf38ba8, roughness: 0.35, metalness: 0.3 }),
+  );
+  track(chassis, chassisMesh);
+
+  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1e1e2e, roughness: 0.9 });
+  for (const [wx, wz, steers] of [
+    [0.7, 0.62, true],
+    [0.7, -0.62, true],
+    [-0.7, 0.62, false],
+    [-0.7, -0.62, false],
+  ]) {
+    const wheel = world.createBody({
+      type: 'dynamic',
+      position: { x: x + wx, y: y - 0.25, z: z + wz },
+      allowFastRotation: true,
+      enableSleep: false,
+    });
+    wheel.createSphere({ radius: 0.35, density: 2, friction: 1.2, rollingResistance: 0.05 });
+    track(wheel, new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 12), wheelMat));
+
+    const joint = world.createWheelJoint(chassis, wheel, {
+      localFrameA: { position: { x: wx, y: -0.25, z: wz }, rotation: qXtoY },
+      localFrameB: { position: { x: 0, y: 0, z: 0 } },
+      enableSuspensionSpring: true,
+      suspensionHertz: 4,
+      suspensionDampingRatio: 0.7,
+      enableSuspensionLimit: true,
+      lowerSuspensionLimit: -0.25,
+      upperSuspensionLimit: 0.1,
+      enableSpinMotor: true,
+      maxSpinTorque: 60,
+      enableSteering: steers,
+      steeringHertz: 8,
+      steeringDampingRatio: 1,
+      maxSteeringTorque: 80,
+      enableSteeringLimit: true,
+      lowerSteeringLimit: -0.5,
+      upperSteeringLimit: 0.5,
+    });
+    drive.wheels.push(joint);
+    if (steers) drive.steer.push(joint);
+  }
+}
+
+function updateDrive() {
+  if (!drive.active) return;
+  const forward = (pressed.has('ArrowUp') || pressed.has('w') ? 1 : 0) -
+    (pressed.has('ArrowDown') || pressed.has('s') ? 1 : 0);
+  const turn = (pressed.has('ArrowLeft') || pressed.has('a') ? 1 : 0) -
+    (pressed.has('ArrowRight') || pressed.has('d') ? 1 : 0);
+  for (const joint of drive.wheels) {
+    // negative spin drives the chassis toward +x (its nose)
+    joint.setSpinMotorSpeed(forward * -25);
+  }
+  for (const joint of drive.steer) {
+    joint.setTargetSteeringAngle(turn * 0.45);
+  }
+}
+
+SCENES.dominoes = {
+  label: 'Dominoes',
+  help: 'click: cannonball',
+  build() {
+    // constant arc-length spacing along the spiral so every domino is within
+    // toppling reach of the next; thin axis (local z) along the tangent so
+    // each domino faces the next one and the chain propagates
+    const totalAngle = Math.PI * 5;
+    const spacing = 1.1;
+    let angle = 0;
+    let i = 0;
+    while (angle < totalAngle && i < 200) {
+      const radius = 14 - (angle / totalAngle) * 10;
+      const px = Math.cos(angle) * radius;
+      const pz = Math.sin(angle) * radius;
+      const body = world.createBody({
+        type: 'dynamic',
+        position: { x: px, y: 0.75, z: pz },
+        rotation: { x: 0, y: Math.sin(-angle / 2), z: 0, w: Math.cos(-angle / 2) },
+      });
+      body.createBox({ halfExtents: { x: 0.45, y: 0.75, z: 0.09 }, density: 1, friction: 0.4 });
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.9, 1.5, 0.18),
+        new THREE.MeshStandardMaterial({ color: palette[i % palette.length], roughness: 0.5 }),
+      );
+      track(body, mesh);
+      angle += spacing / radius;
+      i++;
+    }
+  },
+  onClick(at) {
+    shootBall(at);
+  },
+  onWave() {
+    rainShapes({ x: 0, z: 0 }, 20);
+  },
+};
+
+SCENES.bridge = {
+  label: 'Bridge',
+  help: 'click: rain shapes on the bridge',
+  build() {
+    const plankCount = 14;
+    const plankHalf = 0.55;
+    const gapStart = -plankCount * plankHalf;
+    const deckY = 5;
+
+    const makeTower = (tx) => {
+      const tower = world.createBody({ type: 'static', position: { x: tx, y: deckY / 2, z: 0 } });
+      tower.createBox({ halfExtents: { x: 1, y: deckY / 2, z: 2 } });
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(2, deckY, 4),
+        new THREE.MeshStandardMaterial({ color: 0x8a8f98, roughness: 0.7 }),
+      );
+      mesh.position.set(tx, deckY / 2, 0);
+      addStaticMesh(mesh);
+      return tower;
+    };
+    const towerA = makeTower(gapStart - 1);
+    const towerB = makeTower(-gapStart + 1);
+
+    let prev = towerA;
+    let prevAnchor = { x: 1, y: deckY / 2, z: 0 };
+    for (let i = 0; i < plankCount; i++) {
+      const px = gapStart + plankHalf + i * plankHalf * 2;
+      const plank = world.createBody({ type: 'dynamic', position: { x: px, y: deckY, z: 0 } });
+      plank.createBox({ halfExtents: { x: plankHalf - 0.03, y: 0.1, z: 1.5 }, density: 1.5, friction: 0.7 });
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry((plankHalf - 0.03) * 2, 0.2, 3),
+        new THREE.MeshStandardMaterial({ color: 0xfab387, roughness: 0.6 }),
+      );
+      track(plank, mesh);
+      world.createRevoluteJoint(prev, plank, {
+        anchorA: prevAnchor,
+        anchorB: { x: -plankHalf, y: 0, z: 0 },
+      });
+      prev = plank;
+      prevAnchor = { x: plankHalf, y: 0, z: 0 };
+    }
+    world.createRevoluteJoint(prev, towerB, {
+      anchorA: { x: plankHalf, y: 0, z: 0 },
+      anchorB: { x: -1, y: deckY / 2, z: 0 },
+    });
+  },
+  onClick(at) {
+    rainShapes({ x: at.x, z: at.z }, 6);
+  },
+  onWave() {
+    rainShapes({ x: 0, z: 0 }, 25);
+  },
+};
+
+SCENES.driving = {
+  label: 'Driving',
+  help: 'drive: arrows or wasd   click: rain obstacles',
+  build() {
+    drive.active = true;
+    buildBuggy(0, 1.2, 6);
+    // ramp
+    const ramp = world.createBody({
+      type: 'static',
+      position: { x: -8, y: 0.8, z: -4 },
+      rotation: { x: 0, y: 0, z: Math.sin(0.15), w: Math.cos(0.15) },
+    });
+    ramp.createBox({ halfExtents: { x: 4, y: 0.15, z: 3 } });
+    const rampMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(8, 0.3, 6),
+      new THREE.MeshStandardMaterial({ color: 0x8a8f98, roughness: 0.7 }),
+    );
+    rampMesh.position.set(-8, 0.8, -4);
+    rampMesh.setRotationFromQuaternion(new THREE.Quaternion(0, 0, Math.sin(0.15), Math.cos(0.15)));
+    addStaticMesh(rampMesh);
+    // obstacles to plow through
+    for (let i = 0; i < 40; i++) {
+      spawnShape(rand(-10, 10), 1 + (i % 4), rand(-12, 2));
+    }
+  },
+  onClick(at) {
+    rainShapes(at, 6);
+  },
+  onWave() {
+    rainShapes({ x: 0, z: 0 }, 20);
+  },
+};
+
 let currentScene = SCENES[params.get('scene')] ? params.get('scene') : 'playground';
 
 function loadScene(name) {
   currentScene = name;
+  drive.active = false;
+  drive.wheels.length = 0;
+  drive.steer.length = 0;
   resetWorld();
   SCENES[name].build();
   for (const btn of document.querySelectorAll('#menu button')) {
@@ -450,6 +657,15 @@ for (const [name, def] of Object.entries(SCENES)) {
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
     loadScene(name);
+  });
+  menu.appendChild(btn);
+}
+{
+  const btn = document.createElement('button');
+  btn.textContent = 'Reset';
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    loadScene(currentScene);
   });
   menu.appendChild(btn);
 }
@@ -516,7 +732,13 @@ renderer.domElement.addEventListener('dblclick', (e) => {
 });
 
 addEventListener('keydown', (e) => {
+  pressed.add(e.key.length === 1 ? e.key.toLowerCase() : e.key);
   if (e.key === 'b') SCENES[currentScene].onWave();
+  if (e.key === 'r') loadScene(currentScene);
+});
+
+addEventListener('keyup', (e) => {
+  pressed.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key);
 });
 
 addEventListener('resize', () => {
@@ -545,6 +767,7 @@ function frame(now) {
   const t0 = performance.now();
   let stepped = false;
   while (accumulator >= DT) {
+    updateDrive();
     world.step(DT, SUBSTEPS);
     accumulator -= DT;
     stepped = true;
@@ -573,7 +796,7 @@ function frame(now) {
       `Box3D by Erin Catto, wasm build (${mode})\n` +
       `bodies: ${bodyCount}  awake: ${world.getAwakeBodyCount()}\n` +
       `physics: ${physicsMs.toFixed(2)} ms/frame  render: ${fps} fps\n` +
-      `${SCENES[currentScene].help}   shift+click: cannonball   dblclick: explode   b: more`;
+      `${SCENES[currentScene].help}   shift+click: cannonball   dblclick: explode   b: more   r: reset`;
   }
 }
 
